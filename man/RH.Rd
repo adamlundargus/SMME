@@ -23,7 +23,7 @@ This function is an implementation of the \eqn{\rho}-operator found in
 }
 \details{
 For details see \cite{Currie et al 2006}. Note that this particular implementation
-is not used in the optimization routines underlying the glamlasso procedure.
+is not used in the  routines underlying the optimization procedure.
 }
 \examples{
 

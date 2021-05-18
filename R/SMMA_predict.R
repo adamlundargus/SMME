@@ -3,7 +3,7 @@
 #     R interface for SMMA routines.
 #
 #     Intended for use with R.
-#     Copyright (C) 2016 Adam Lund
+#     Copyright (C) 2021 Adam Lund
 #
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-# @aliases SMMA_predict SMMA.predict
+#' @aliases SMMA_predict SMMA.predict
 #' @title Make Prediction From a SMMA Object
 #'
 #' @description  Given new covariate data this function computes the linear predictors
@@ -63,7 +63,7 @@
 #' Y <- array(NA, c(dim(Y1), 2))
 #' Y[,,, 1] <- Y1; Y[,,, 2] <- Y2;
 #'
-#' fit <- softmaximin(X, Y, penalty = "lasso", alg = "npg")
+#' fit <- softmaximin(X, Y, zeta = 10, penalty = "lasso", alg = "npg")
 #'
 #' ##new data in matrix form
 #' x <- matrix(rnorm(p1 * p2 * p3), nrow = 1)
@@ -78,7 +78,8 @@
 #'
 #' @author Adam Lund
 #' @method predict SMMA
-# @S3method predict SMMA
+#' @S3method predict SMMA
+# @export predict.SMMA
 #' @export
 predict.SMMA <- function(object, x = NULL, X = NULL, ...) {
 
@@ -112,11 +113,19 @@ res[[i]] <- x %*% beta
 }
 
 } else if(is.null(x)  & is.null(X) == FALSE) {
+  if(!is.list(X)){
+    stop(paste("X must be a list of length 1, 2 or 3!"))
+  }
   dimglam <- length(X)
 
-  if (dimglam < 2 || dimglam > 3){
+  if (dimglam > 3){
 
-    stop(paste("the dimension of the GLAM must be 2 or 3!"))
+    stop(paste("the dimension of the model must be 1, 2 or 3!"))
+
+  }else if (dimglam == 1){
+
+    X[[2]] <- matrix(1, 1, 1)
+    X[[3]] <- matrix(1, 1, 1)
 
   }else if (dimglam == 2){X[[3]] <- matrix(1, 1, 1)}
 
