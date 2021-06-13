@@ -1,6 +1,6 @@
 #
 #     Description of this R script:
-#     R interface for SMMA routines.
+#     R interface for SMME routines.
 #
 #     Intended for use with R.
 #     Copyright (C) 2021 Adam Lund
@@ -19,8 +19,8 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-#' @aliases SMMA_predict SMMA.predict
-#' @title Make Prediction From a SMMA Object
+#' @aliases SMME_predict SMME.predict
+#' @title Make Prediction From a SMME Object
 #'
 #' @description  Given new covariate data this function computes the linear predictors
 #' based on the estimated model coefficients in an object produced by the function \code{softmaximin}. Note that the
@@ -29,7 +29,7 @@
 #' size \eqn{n_i' \times p_i, i = 1, 2, 3} (\eqn{n_i'} is the number of new marginal data points in the \eqn{i}th dimension).
 #'
 #'
-#' @param object An object of class SMMA, produced with \code{softmaximin}
+#' @param object An object of class SMME, produced with \code{softmaximin}
 #' @param x a matrix of size \eqn{n' \times p} with \eqn{n'} is the number of new data points.
 #' @param X  a list containing the data matrices each of size \eqn{n'_{i} \times p_i},
 #' where \eqn{n'_{i}} is the number of new data points in  the \eqn{i}th dimension.
@@ -77,11 +77,9 @@
 #'
 #'
 #' @author Adam Lund
-#' @method predict SMMA
-#' @S3method predict SMMA
-# @export predict.SMMA
+#' @method predict SMME
 #' @export
-predict.SMMA <- function(object, x = NULL, X = NULL, ...) {
+predict.SMME <- function(object, x = NULL, X = NULL, ...) {
 
 nlambda <- length(object$lambda)
 p <- object$dimcoef
@@ -163,7 +161,7 @@ res[[i]] <- RH(X3, RH(X2, RH(X1, beta)))
 
 }else{stop(paste("dimension of new data inconsistent with existing data"))}
 
-class(res) <- "SMMA"
+class(res) <- "SMME"
 
 return(res)
 

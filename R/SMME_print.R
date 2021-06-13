@@ -1,6 +1,6 @@
 #
 #     Description of this R script:
-#     R interface for SMMA routines.
+#     R interface for SMME routines.
 #
 #     Intended for use with R.
 #     Copyright (C) 2017 Adam Lund
@@ -19,11 +19,11 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-#' @title Print Function for objects of Class SMMA
+#' @title Print Function for objects of Class SMME
 #'
-#' @description This function will print some information about the SMMA object.
+#' @description This function will print some information about the SMME object.
 #'
-#' @param x a SMMA object
+#' @param x a SMME object
 #' @param ... ignored
 #'
 #'
@@ -53,11 +53,10 @@
 #' fit
 #'
 #' @author Adam Lund
-#' @method print SMMA
-#' @S3method print SMMA
+#' @method print SMME
 #' @export
 
-print.SMMA <- function(x, ...) {
+print.SMME <- function(x, ...) {
 out <- data.frame(Df = x$df, lambda = x$lambda)
 print(out)
 }

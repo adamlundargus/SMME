@@ -2,7 +2,7 @@
     A number of functions utilized by rcppfunc.cpp.
 
     Intended for use with R.
-    Copyright (C) 2015 Adam Lund
+    Copyright (C) 2021 Adam Lund
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 
 #include <math.h>
 using namespace std;
-//using namespace arma;
+using namespace arma;
 
 ////////////////////////////////// Auxiliary functions
 //////////////////// Direct RH-transform of a flat 3d array (matrix) M by a matrix X
@@ -50,14 +50,50 @@ Mnew(c, s + r * sli) = XM(r, c + s * col);
 return Mnew;
 
 }
+///
+mat cube_mult(cube C, mat M){
+
+int G = C.n_slices, p = M.n_rows;
+mat V(p, G);
+for(int i = 0; i < G; i++){V.col(i) = C.slice(i) * M;}
+
+return V;
+
+}
+///
+field<mat> field_mult(field<mat> F, mat M){
+
+int G = F.size();
+field<mat> V(G, 1);
+for(int i = 0; i < G; i++){V(i, 0) = F(i, 0) * M;}
+
+return V;
+
+}
 
 ////////////////// empirical explained variance function
 arma::vec eev(arma::mat XBeta, arma::cube Z, int ng){
 
 arma::vec eevar(Z.n_slices);
 double sumXBeta2 = accu(pow(XBeta, 2));
+int G = Z.n_slices;
+for(int j = 0; j < G; j++){
+    eevar(j) = (2 * accu(XBeta  %  Z.slice(j))  - sumXBeta2) / ng;
+    }
+//for(int j = 0; j < Z.n_slices; j++) {eevar(j) = (2 * XBeta  *  Z.slice(j)  - sumXBeta2) / ng;}
 
-for(int j = 0; j < Z.n_slices; j++) {eevar(j) = (2 * accu(XBeta  %  Z.slice(j))  - sumXBeta2) / ng;}
+return eevar;
+
+}
+
+arma::vec eev_f(arma::field<mat> PHIX, arma::field<mat> Z, arma::vec n){
+
+int G = Z.size();
+arma::vec eevar(G);
+
+for(int j = 0; j < G; j++){
+eevar(j) = (2 * as_scalar(PHIX(j, 0).t() * Z(j, 0))  - accu(pow(PHIX(j, 0), 2))) / n(j);
+}
 
 return eevar;
 
@@ -71,14 +107,12 @@ if(ll == 1){
 double k =  max(h);
 return log(accu(exp(c * (h - k)))) / c +  k;
 
-}else{
-return accu(exp(c * h));
-
-}
+}else{return accu(exp(c * h));}
 
 }
 //////////////////// gradloss
-arma::mat gradloss(arma::cube const& PhitZ, arma::mat const& XtXb, arma::vec const& h, int ng, double c, int ll){
+arma::mat gradloss(arma::cube const& PhitZ, arma::mat const& XtXb, arma::vec const& h,
+                   int ng, double c, int ll){
 
 arma::mat gradout(XtXb.n_rows, XtXb.n_cols);
 gradout.fill(0);
@@ -93,13 +127,45 @@ gradout = exp(c * (h(j) - k)) * (XtXb - PhitZ.slice(j)) + gradout;
 
 }else{
 
-for(int j = 0; j < PhitZ.n_slices; j++){gradout = exp(c * h(j)) * (XtXb - PhitZ.slice(j)) + gradout;}
+for(int j = 0; j < PhitZ.n_slices; j++){
+    gradout = exp(c * h(j)) * (XtXb - PhitZ.slice(j)) + gradout;
+    }
 
 return 2 * c * gradout / ng;
 
 }
 
 }
+
+//////////////////// gradloss_f
+arma::mat gradloss_f(arma::mat const& PhitZ, arma::mat const& XtXb, arma::vec const& h,
+                     vec n, double c, int ll){
+
+arma::mat gradout(XtXb.n_rows, 1); //px1
+gradout.fill(0);
+int G = PhitZ.n_cols;
+
+if(ll == 1){
+
+double  k = max(h);
+double tmp =  accu(exp(c * (h - k)));
+for(int j = 0; j < G; j++){
+gradout = exp(c * (h(j) - k)) * (XtXb.col(j) - PhitZ.col(j)) / n(j) + gradout;
+}
+return 2 * gradout / tmp;
+
+}else{
+
+for(int j = 0; j < G; j++){
+gradout = exp(c * h(j)) * (XtXb.col(j) - PhitZ.col(j)) / n(j) + gradout;
+}
+return 2 * c * gradout;
+
+}
+
+}
+
+
 
 //////////////////// Sum of squares function
 double sum_square(arma::mat const& x){return accu(x % x);}
