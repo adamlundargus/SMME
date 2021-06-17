@@ -1,3 +1,6 @@
+//// [[Rcpp::plugins(openmp)]]
+//#include <omp.h>
+
 //// [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 #include "auxfunc.h"
@@ -12,7 +15,7 @@ using namespace arma;
 Rcpp::List pga(Rcpp::List phi,
                Rcpp::List resp,
                std::string penalty,
-               double zeta,
+               arma::vec zeta,
                double c,
                arma::vec lambda,
                int nlambda,
@@ -45,36 +48,31 @@ for(int i = 0; i < G; i++){Z.slice(i) = as<arma::mat>(Resp[i]);}
 
 int ascent, ascentmax,
 bt, btenter = 0, btiter = 0,
-endmodelno = nlambda,
+endmodelno = nlambda, nzeta = zeta.n_elem,
 n1 = Phi1.n_rows, n2 = Phi2.n_rows, n3 = Phi3.n_rows, ng = n1 * n2 * n3,
 p1 = Phi1.n_cols, p2 = Phi2.n_cols, p3 = Phi3.n_cols, p = p1 * p2 * p3,
 Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
 double alphamax, ascad = 3.7, delta, deltamax, L, lossBeta, lossProp, lossX, penProp,
- relobj,
- val;
+  relobj, val;
 
-arma::vec df(nlambda),
-eig1, eig2, eig3,
+arma::vec Btenter(nzeta),  Btiter(nzeta), df(nlambda),
+eig1, eig2, eig3, EndMod(nzeta),
 Iter(nlambda),Pen(maxiter),
 obj(maxiter + 1),
 Stops(3),
 eevBeta, eevProp, eevX;
 
-arma::mat absBeta(p1, p2 * p3),
-Beta(p1, p2 * p3), Betaprev(p1, p2 * p3), Betas(p, nlambda), BT(nlambda, maxiter),
-Delta(maxiter, nlambda),dpen(p1, p2 * p3),
-Gamma(p1, p2 * p3), GradlossX(p1, p2 * p3), GradlossXprev(p1, p2 * p3), GradlossX2(p1, p2 * p3),
-Obj(maxiter, nlambda),
-Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitPhiBeta, PhitPhiX, pospart(p1, p2 * p3),
-Prop(p1, p2 * p3), PhiBeta(n1, n2 * n3), PhiProp(n1, n2 * n3), PhiX(n1, n2 * n3),
-wGamma(p1, p2 * p3),
-R,
-S, Sumsqdiff(G, G),
-X(p1, p2 * p3), Xprev,
-Zi;
+arma::mat absBeta(p1, p2 * p3), Beta(p1, p2 * p3), Betaprev(p1, p2 * p3),
+          Betas(p, nlambda), BT(nlambda, maxiter), Delta(maxiter, nlambda),
+          DF(nlambda, nzeta), dpen(p1, p2 * p3), Gamma(p1, p2 * p3),
+          GradlossX(p1, p2 * p3), GradlossXprev(p1, p2 * p3), GradlossX2(p1, p2 * p3),
+          ITER(nlambda, nzeta), Lamb(nlambda, nzeta), Obj(maxiter, nlambda),
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitPhiBeta, PhitPhiX, pospart(p1, p2 * p3),
+          Prop(p1, p2 * p3), PhiBeta(n1, n2 * n3), PhiProp(n1, n2 * n3), PhiX(n1, n2 * n3),
+          wGamma(p1, p2 * p3), R, S, Sumsqdiff(G, G), X(p1, p2 * p3), Xprev, Zi;
 
-arma::cube PhitZ(p1, p2 * p3, G);
+arma::cube Coef(p, nlambda, nzeta) , OBJ(maxiter, nlambda, nzeta), PhitZ(p1, p2 * p3, G);
 
 ////fill variables
 ascentmax = 4;
@@ -141,7 +139,11 @@ PhitPhiBeta = RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, Beta, p2, p3), 
 PhitPhiX = PhitPhiBeta; //npg only uses X
 eevBeta = -eev(PhiBeta, Z, ng);
 eevX = eevBeta;
-lossBeta = softmaxloss(eevBeta, zeta, ll);
+
+//zeta loop
+for(int z = 0; z < nzeta ; z++){
+
+lossBeta = softmaxloss(eevBeta, zeta(z), ll);
 lossX = lossBeta; //npg only uses X
 
 ////make lambda sequence
@@ -150,7 +152,7 @@ if(makelamb == 1){
 //arma::mat Ze = zeros<mat>(n1, n2 * n3);
 arma::mat absgradzeroall(p1, p2 * p2);
 
-absgradzeroall = abs(gradloss(PhitZ, PhitPhiBeta, -eev(PhiBeta, Z, ng), ng, zeta, ll));
+absgradzeroall = abs(gradloss(PhitZ, PhitPhiBeta, -eev(PhiBeta, Z, ng), ng, zeta(z), ll));
 
 arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
 arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
@@ -210,8 +212,8 @@ Delta(k, j) = delta;
 }else{//if not the first iteration
 
 PhitPhiX = RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, X, p2, p3), p3, p1), p1, p2);
-GradlossX = gradloss(PhitZ, PhitPhiX, eevX, ng, zeta, ll);
-lossX = softmaxloss(eevX, zeta, ll);
+GradlossX = gradloss(PhitZ, PhitPhiX, eevX, ng, zeta(z), ll);
+lossX = softmaxloss(eevX, zeta(z), ll);
 
 if(k > 1){//why this exception ?? todo
 S = X - Xprev;
@@ -229,7 +231,7 @@ while(BT(j, k) < btmax){
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PhiProp = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Prop, p2, p3), p3, n1), n1, n2);
 eevProp = -eev(PhiProp, Z, ng);
-lossProp = softmaxloss(eevProp, zeta, ll);
+lossProp = softmaxloss(eevProp, zeta(z), ll);
 
 val = as_scalar(max(obj(span(std::max(0, k - mem), k - 1))) - c / 2 * sum_square(Prop - Xprev));
 penProp = l1penalty(wGamma, Prop);
@@ -316,7 +318,7 @@ X = Beta + (k - 2) / (k + 1) * (Beta - Betaprev);
 PhiX = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, X, p2, p3), p3, n1), n1, n2);
 eevX = -eev(PhiX, Z, ng);
 PhitPhiX = RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, X, p2, p3), p3, p1), p1, p2);
-GradlossX = gradloss(PhitZ, PhitPhiX, eevX, ng, zeta, ll);
+GradlossX = gradloss(PhitZ, PhitPhiX, eevX, ng, zeta(z), ll);
 
 ////check if proximal backtracking occurred last iteration
 if(BT(j, k - 1) > 0){bt = 1;}else{bt = 0;}
@@ -326,14 +328,14 @@ if(ascent > ascentmax){bt= 1;}
 
 if((bt == 1 && deltamax < delta) || nu > 1){//backtrack
 
-lossX = softmaxloss(eevX, zeta, ll);
+lossX = softmaxloss(eevX, zeta(z), ll);
 BT(j, k) = 0;
 
 while(BT(j, k) < btmax){//start backtracking
 
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PhiProp = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Prop, p2, p3), p3, n1), n1, n2);
-lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta, ll);
+lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta(z), ll);
 
 val = as_scalar(lossX + accu(GradlossX % (Prop - X))
 + 1 / (2 * delta) * sum_square(Prop - X));
@@ -359,7 +361,7 @@ if(BT(j, k) == btmax){Stopbt = 1;}
 
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PhiProp = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Prop, p2, p3), p3, n1), n1, n2);
-lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta, ll);
+lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta(z), ll);
 
 }
 
@@ -431,24 +433,37 @@ break;
 
 }//end lambda loop
 
+
+
 Stops(0) = Stopconv;
 Stops(1) = Stopmaxiter;
 Stops(2) = Stopbt;
 btenter = accu((BT > -1));
 btiter = accu((BT > 0) % BT);
 
-output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
-                            Rcpp::Named("df") = df,
-                            Rcpp::Named("btenter") = btenter,
-                            Rcpp::Named("btiter") = btiter,
-                            Rcpp::Named("Obj") = Obj,
-                            Rcpp::Named("Iter") = Iter,
-                            Rcpp::Named("endmodelno") = endmodelno,
-                            Rcpp::Named("lambda") = lambda,
-                            Rcpp::Named("BT") = BT,
-                            Rcpp::Named("L") = L,
-                            Rcpp::Named("Delta") = Delta,
-                            Rcpp::Named("Sumsqdiff") = Sumsqdiff,
+Coef.slice(z) = Betas;
+DF.col(z) = df;
+Btenter(z) = btenter;
+Btiter(z) = btiter;
+OBJ.slice(z) = Obj;
+ITER.col(z) = Iter;
+EndMod(z) = endmodelno;
+Lamb.col(z) = lambda;
+
+}//end zeta loop
+
+output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
+                            Rcpp::Named("df") = DF,
+                            Rcpp::Named("btenter") = Btenter,
+                            Rcpp::Named("btiter") = Btiter,
+                            Rcpp::Named("Obj") = OBJ,
+                            Rcpp::Named("Iter") = ITER,
+                            Rcpp::Named("endmodelno") = EndMod,
+                            Rcpp::Named("lambda") = Lamb,
+                          //  Rcpp::Named("BT") = BT,
+                          //  Rcpp::Named("L") = L,
+                          //  Rcpp::Named("Delta") = Delta,
+                          //  Rcpp::Named("Sumsqdiff") = Sumsqdiff,
                             Rcpp::Named("Stops") = Stops);
 
 }else{//non array
@@ -469,18 +484,23 @@ n(i) = PHI(i, 0).n_rows;
 
 }
 
-int btiter = 0, endmodelno = nlambda, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
+
+
+int btiter = 0, endmodelno = nlambda, nzeta = zeta.n_elem, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
 double ascad = 3.7, delta, lossProp, lossX, penProp, relobj, val;
 
-arma::vec df(nlambda), eevBeta, eevProp, eevX, Iter(nlambda), obj(maxiter + 1),
+arma::vec Btiter(nzeta), df(nlambda), eevBeta, eevProp, eevX, EndMod(nzeta),
+          Iter(nlambda), obj(maxiter + 1),
           Pen(maxiter), Stops(3);
 
-arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter), Delta(maxiter, nlambda),
-          dpen(p, 1), Gamma(p, 1), GradlossX(p, 1), GradlossXprev(p, 1), GradlossX2(p, 1),
-          Obj(maxiter, nlambda),
-          PHItPHIX, pospart(p, 1), Prop(p, 1),
+arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter), DF(nlambda, nzeta),
+          Delta(maxiter, nlambda), dpen(p, 1), Gamma(p, 1), GradlossX(p, 1),
+          GradlossXprev(p, 1), GradlossX2(p, 1), ITER(nlambda, nzeta), Lamb(nlambda, nzeta),
+          Obj(maxiter, nlambda), PHItPHIX, pospart(p, 1), Prop(p, 1),
           wGamma(p, 1), R,S,X(p, 1), Xprev(p, 1);
+
+cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta);
 
 field<mat> PHIX, PHIProp;
 
@@ -503,21 +523,11 @@ X = Xprev;
 PHIX = field_mult(PHI, X); // G * n_g field
 PHItPHIX = cube_mult(PHItPHI, X); // p x G matrix
 eevX = -eev_f(PHIX, RESP, n);
-lossX = softmaxloss(eevX, zeta, ll);
 
+//start zeta loop-----
+for(int z = 0; z < nzeta ; z++){
+lossX = softmaxloss(eevX, zeta(z), ll);
 
-// Betaprev.fill(0);
-// Beta = Betaprev;
-// X = Beta; //npg only uses X
-// Xprev = Betaprev; //npg only uses X
-// PhiBeta = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
-// PhiX = PhiBeta; //npg only uses X
-// PhitPhiBeta = RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, Beta, p2, p3), p3, p1), p1, p2);
-// PhitPhiX = PhitPhiBeta; //npg only uses X
-// eevBeta = -eev(PhiBeta, Z, ng);
-// eevX = eevBeta;
-// lossBeta = softmaxloss(eevBeta, zeta, ll);
-// lossX = lossBeta; //npg only uses X
 
 //make lambda sequence
 if(makelamb == 1){
@@ -525,7 +535,7 @@ if(makelamb == 1){
 //arma::vec Ze = zeros<vec>(n);
 arma::mat absgradzeroall(p, 1);
 
-absgradzeroall = abs(gradloss_f(PHItRESP, PHItPHIX, eevX, n, zeta, ll)); //todo gradloss
+absgradzeroall = abs(gradloss_f(PHItRESP, PHItPHIX, eevX, n, zeta(z), ll)); //todo gradloss
 
 arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
 arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
@@ -570,13 +580,9 @@ wGamma = abs(dpen) % Gamma / lambda(j) % (X != 0) + lambda(j) * (X == 0);
 }
 
 ///start proximal loop
-//if(alg == 0){//NPG algorithm from chen2016
-
 for (int k = 0; k < maxiter; k++){
 
 if(k == 0){
-
-
 
 Xprev = X;
 obj(k) = lossX + l1penalty(wGamma, X);
@@ -585,8 +591,8 @@ Obj(k, j) = obj(k);
 }else{//if not the first iteration
 
 PHItPHIX = cube_mult(PHItPHI, X);
-GradlossX = gradloss_f(PHItRESP, PHItPHIX, eevX, n, zeta, ll);
-lossX = softmaxloss(eevX, zeta, ll);
+GradlossX = gradloss_f(PHItRESP, PHItPHIX, eevX, n, zeta(z), ll);
+lossX = softmaxloss(eevX, zeta(z), ll);
 
 if(k > 1){//why this exception ?? todo
 S = X - Xprev;
@@ -605,7 +611,7 @@ while(BT(j, k) < btmax){
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PHIProp = field_mult(PHI, Prop); //eta return field of length G
 eevProp = -eev_f(PHIProp, RESP, n); //
-lossProp = softmaxloss(eevProp, zeta, ll);
+lossProp = softmaxloss(eevProp, zeta(z), ll);
 
 val = as_scalar(max(obj(span(std::max(0, k - mem), k - 1))) - c / 2 * sum_square(Prop - Xprev));
 penProp = l1penalty(wGamma, Prop);
@@ -692,14 +698,29 @@ Stops(1) = Stopmaxiter;
 Stops(2) = Stopbt;
 btiter = accu((BT > 0) % BT);
 
-output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
-                            Rcpp::Named("df") = df,
-                            Rcpp::Named("btiter") = btiter,
-                            Rcpp::Named("Obj") = Obj,
-                            Rcpp::Named("Iter") = Iter,
-                            Rcpp::Named("endmodelno") = endmodelno,
-                            Rcpp::Named("lambda") = lambda,
-                            Rcpp::Named("BT") = BT,
+Coef.slice(z) = Betas;
+DF.col(z) = df;
+//Btenter(z) = btenter;
+Btiter(z) = btiter;
+OBJ.slice(z) = Obj;
+ITER.col(z) = Iter;
+EndMod(z) = endmodelno;
+Lamb.col(z) = lambda;
+
+}//end zeta loop
+
+output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
+                            Rcpp::Named("df") = DF,
+                          //  Rcpp::Named("btenter") = Btenter,
+                            Rcpp::Named("btiter") = Btiter,
+                            Rcpp::Named("Obj") = OBJ,
+                            Rcpp::Named("Iter") = ITER,
+                            Rcpp::Named("endmodelno") = EndMod,
+                            Rcpp::Named("lambda") = Lamb,
+                            //  Rcpp::Named("BT") = BT,
+                            //  Rcpp::Named("L") = L,
+                            //  Rcpp::Named("Delta") = Delta,
+                            //  Rcpp::Named("Sumsqdiff") = Sumsqdiff,
                             Rcpp::Named("Stops") = Stops);
 }
 

@@ -7,7 +7,7 @@
 using namespace Rcpp;
 
 // pga
-Rcpp::List pga(Rcpp::List phi, Rcpp::List resp, std::string penalty, double zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, int mem, double tau, double nu, int alg, int array, int ll, double Lmin);
+Rcpp::List pga(Rcpp::List phi, Rcpp::List resp, std::string penalty, arma::vec zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, int mem, double tau, double nu, int alg, int array, int ll, double Lmin);
 RcppExport SEXP _SMME_pga(SEXP phiSEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP memSEXP, SEXP tauSEXP, SEXP nuSEXP, SEXP algSEXP, SEXP arraySEXP, SEXP llSEXP, SEXP LminSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -15,7 +15,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::List >::type phi(phiSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type resp(respSEXP);
     Rcpp::traits::input_parameter< std::string >::type penalty(penaltySEXP);
-    Rcpp::traits::input_parameter< double >::type zeta(zetaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type zeta(zetaSEXP);
     Rcpp::traits::input_parameter< double >::type c(cSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< int >::type nlambda(nlambdaSEXP);

@@ -120,10 +120,11 @@ gradout.fill(0);
 if(ll == 1){
 double  k = max(h);
 double tmp =  accu(exp(c * (h - k)));
- for(int j = 0; j < PhitZ.n_slices; j++){
+for(int j = 0; j < PhitZ.n_slices; j++){
 gradout = exp(c * (h(j) - k)) * (XtXb - PhitZ.slice(j)) + gradout;
 }
- return 2 * gradout / (tmp * ng);
+
+return 2 * gradout / (tmp * ng);
 
 }else{
 

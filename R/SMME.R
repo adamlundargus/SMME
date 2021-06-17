@@ -452,9 +452,9 @@ out$dimobs <- c(n1, n2, n3)[1:dimglam]
 out$Obj <- res$Obj
 out$endno <- res$endmodelno
 out$L <- res$L
-out$L1 <- res$L1 #remove todo
-out$sumsqdiff <- res$Sumsqdiff #todo remove
-out$Delta <- res$Delta #todo remove
+#out$L1 <- res$L1 #remove todo
+#out$sumsqdiff <- res$Sumsqdiff #todo remove
+#out$Delta <- res$Delta #todo remove
 out$deltamax <- res$deltamax
 out$BT <- res$BT
 
