@@ -46,6 +46,9 @@ arma::cube Z(Phi1.n_rows, Phi2.n_rows * Phi3.n_rows, G);
 
 for(int i = 0; i < G; i++){Z.slice(i) = as<arma::mat>(Resp[i]);}
 
+
+
+
 int ascent, ascentmax,
 bt, btenter = 0, btiter = 0,
 endmodelno = nlambda, nzeta = zeta.n_elem,
@@ -484,9 +487,8 @@ n(i) = PHI(i, 0).n_rows;
 
 }
 
-
-
-int btiter = 0, endmodelno = nlambda, nzeta = zeta.n_elem, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
+int btiter = 0, endmodelno = nlambda, nzeta = zeta.n_elem, Stopconv = 0,
+  Stopmaxiter = 0, Stopbt = 0;
 
 double ascad = 3.7, delta, lossProp, lossX, penProp, relobj, val;
 
@@ -524,7 +526,7 @@ PHIX = field_mult(PHI, X); // G * n_g field
 PHItPHIX = cube_mult(PHItPHI, X); // p x G matrix
 eevX = -eev_f(PHIX, RESP, n);
 
-//start zeta loop-----
+//start zeta loop--------------------------------------------------------------
 for(int z = 0; z < nzeta ; z++){
 lossX = softmaxloss(eevX, zeta(z), ll);
 
@@ -706,6 +708,11 @@ OBJ.slice(z) = Obj;
 ITER.col(z) = Iter;
 EndMod(z) = endmodelno;
 Lamb.col(z) = lambda;
+
+//reset
+Stopconv = 0;
+Stopmaxiter = 0;
+Stopbt = 0;
 
 }//end zeta loop
 

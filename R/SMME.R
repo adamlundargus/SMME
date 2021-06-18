@@ -182,7 +182,7 @@
 #' #Non-array data
 #'
 #' ##size of example
-#' G<- 5; n <- c(20, 26, 13, 10, 30); p <- 60
+#' G <- 10; n <- sample(500:1500, G); p <- 60
 #' x <- y <- list()
 #'
 #' ##group design matrices
@@ -190,24 +190,24 @@
 #'
 #' ##common features and effects
 #' common_features <- rbinom(p, 1, 0.1)
-#' common_effects <- rnorm(p, 0, 0.1) * common_features
+#' common_effects <- rnorm(p) * common_features
 #'
 #' ##group response
 #' for(g in 1:G){
-#' bg <- rnorm(p, 0, 0.1) * (1 - common_features) + common_effects
+#' bg <- rnorm(p, 0, 0.5) * (1 - common_features) + common_effects
 #' mu <- x[[g]] %*% bg
 #' y[[g]] <- rnorm(n[g]) + mu
 #' }
 #'
 #' ##fit model for specific zeta
-#' system.time(fit <- softmaximin(x, y, zeta = 10, penalty = "lasso", alg = "npg"))
+#' system.time(fit <- softmaximin(x, y, zeta = c(0.1,10), penalty = "lasso", alg = "npg"))
 #' Betafit <- fit$coef
 #'
 #' ##estimated common effects for specific lambda
-#' modelno <- 7
+#' modelno <- 6
 #' m <- min(Betafit[ , modelno], common_effects)
 #' M <- max(Betafit[ , modelno], common_effects)
-#' plot(common_effects, type = "h", ylim = c(m, M), col = "red")
+#' plot(common_effects, type = "p", ylim = c(m, M), col = "red")
 #' lines(Betafit[ , modelno], type = "h")
 #'
 #' #Array data
@@ -277,7 +277,7 @@ if(c <= 0){stop(paste("c must be strictly positive"))}
 
 if(Lmin < 0){stop(paste("Lmin must be positive"))}
 
-if(zeta <= 0){stop(paste("zeta must be strictly positive"))}
+if(mean(zeta <= 0) > 0){stop(paste("all zetas must be strictly positive"))}
 
 if(sum(penalty == c("lasso", "scad")) != 1){stop(paste("penalty must be correctly specified"))}
 
@@ -412,7 +412,6 @@ warning(paste("program exit due to maximum number of backtraking steps reached f
 
 }
 
-endmodelno <- res$endmodelno #converged models since c++ is zero indexed
 # Iter <- res$Iter
 #
 # maxiterpossible <- sum(Iter > 0)
@@ -435,9 +434,32 @@ out$spec <- paste(dimglam,"-dimensional", penalty," penalized array model with",
 }else{
 out$spec <- paste( penalty," penalized linear model with", G , "groups")
 }
-out$coef <- res$Beta[ , 1:endmodelno]
-out$lambda <- res$lambda[1:endmodelno]
-out$df <- res$df[1:endmodelno]
+
+##should be looped over and sent to list
+endmodelno <- drop(res$endmodelno) #converged models since c++ is zero indexed
+if(length(zeta) > 1){
+coef <- lambda <- df <- list()
+for(z in 1:length(zeta)){
+
+coef[[z]] <- res$Beta[ , 1:endmodelno[z], z]
+lambda[[z]] <- res$lambda[1:endmodelno[z], z]
+df[[z]] <- res$df[1:endmodelno[z], z]
+
+}
+
+}else{
+
+  coef <- res$Beta[ , 1:endmodelno, 1]
+  lambda <- res$lambda[1:endmodelno, 1]
+  df <- res$df[1:endmodelno, 1]
+
+}
+
+
+out$coef <- coef
+out$lambda <- lambda
+out$df <- df
+
 if(array == 1){
 
 out$dimcoef <- c(p1, p2, p3)[1:dimglam]
@@ -449,24 +471,28 @@ out$dimobs <- c(n1, n2, n3)[1:dimglam]
   out$dimobs <- n
 
 }
-out$Obj <- res$Obj
-out$endno <- res$endmodelno
-out$L <- res$L
+
+
+#out$Obj <- drop(res$Obj)
+#out$endno <- endmodelno
+
+#out$L <- drop(res$L)remonve
 #out$L1 <- res$L1 #remove todo
 #out$sumsqdiff <- res$Sumsqdiff #todo remove
 #out$Delta <- res$Delta #todo remove
-out$deltamax <- res$deltamax
-out$BT <- res$BT
+#out$deltamax <- res$deltamax
+
+#out$BT <- drop(res$BT)
 
 Iter <- list()
-Iter$bt_enter <- res$btenter
-Iter$bt_iter <- res$btiter
-Iter$iter_mat <- res$Iter[1:endmodelno, ]
+Iter$bt_enter <- drop(res$btenter)
+Iter$bt_iter <- drop(res$btiter)
+#Iter$iter_mat <- drop(res$Iter[1:endmodelno, ])
 Iter$iter <- sum(Iter$iter_mat, na.rm = TRUE)
 
-out$Iter <- Iter
+out$Iter <- drop(Iter)
 
-out$F <- res$F
+#out$F <- res$F
 
 return(out)
 
