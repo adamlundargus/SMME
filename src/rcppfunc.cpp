@@ -487,22 +487,29 @@ n(i) = PHI(i, 0).n_rows;
 
 }
 
-int btiter = 0, endmodelno = nlambda, nzeta = zeta.n_elem, Stopconv = 0,
+int nzeta = zeta.n_elem;
+arma::vec Btiter(nzeta),  EndMod(nzeta);
+arma::mat DF(nlambda, nzeta), ITER(nlambda, nzeta), Lamb(nlambda, nzeta);
+cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta);
+
+//start parallel zeta loop------------------------------------------------------
+for(int z = 0; z < nzeta ; z++){
+
+int btiter = 0, endmodelno = nlambda,  Stopconv = 0,
   Stopmaxiter = 0, Stopbt = 0;
 
 double ascad = 3.7, delta, lossProp, lossX, penProp, relobj, val;
 
-arma::vec Btiter(nzeta), df(nlambda), eevBeta, eevProp, eevX, EndMod(nzeta),
+arma::vec  df(nlambda), eevBeta, eevProp, eevX,
           Iter(nlambda), obj(maxiter + 1),
           Pen(maxiter), Stops(3);
 
-arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter), DF(nlambda, nzeta),
+arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter),
           Delta(maxiter, nlambda), dpen(p, 1), Gamma(p, 1), GradlossX(p, 1),
-          GradlossXprev(p, 1), GradlossX2(p, 1), ITER(nlambda, nzeta), Lamb(nlambda, nzeta),
+          GradlossXprev(p, 1), GradlossX2(p, 1),
           Obj(maxiter, nlambda), PHItPHIX, pospart(p, 1), Prop(p, 1),
           wGamma(p, 1), R,S,X(p, 1), Xprev(p, 1);
 
-cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta);
 
 field<mat> PHIX, PHIProp;
 
@@ -526,8 +533,7 @@ PHIX = field_mult(PHI, X); // G * n_g field
 PHItPHIX = cube_mult(PHItPHI, X); // p x G matrix
 eevX = -eev_f(PHIX, RESP, n);
 
-//start zeta loop--------------------------------------------------------------
-for(int z = 0; z < nzeta ; z++){
+
 lossX = softmaxloss(eevX, zeta(z), ll);
 
 
@@ -723,12 +729,13 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
                             Rcpp::Named("Obj") = OBJ,
                             Rcpp::Named("Iter") = ITER,
                             Rcpp::Named("endmodelno") = EndMod,
-                            Rcpp::Named("lambda") = Lamb,
+                            Rcpp::Named("lambda") = Lamb
                             //  Rcpp::Named("BT") = BT,
                             //  Rcpp::Named("L") = L,
                             //  Rcpp::Named("Delta") = Delta,
                             //  Rcpp::Named("Sumsqdiff") = Sumsqdiff,
-                            Rcpp::Named("Stops") = Stops);
+                          //  Rcpp::Named("Stops") = Stops
+                              );
 }
 
 return output;
