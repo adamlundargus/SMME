@@ -202,7 +202,7 @@
 #' }
 #'
 #' ##fit model for specific zeta
-#' system.time(fit <- softmaximin(x, y, zeta = c(0.1,10), penalty = "lasso", alg = "npg"))
+#' system.time(fit <- softmaximin(x, y, zeta = c(0.1, 1, 10 , 100), penalty = "lasso", alg = "npg"))
 #' Betafit <- fit$coef
 #'
 #' ##estimated common effects for specific lambda
@@ -215,6 +215,7 @@
 #' #Array data
 #'
 #' ##size of example
+#' set.seed(42)
 #' G <- 5; n <- c(65, 26, 13); p <- c(13, 5, 4)
 #'
 #' ##marginal design matrices (Kronecker components)
@@ -235,7 +236,7 @@
 #' }
 #'
 #' ##fit model for specific zeta
-#' system.time(fit <- softmaximin(x, y, zeta = 10, penalty = "lasso", alg = "npg"))
+#' system.time(fit <- softmaximin(x, y, zeta = c(0.1, 1, 10, 100), penalty = "lasso", alg = "npg"))
 #' Betafit <- fit$coef
 #'
 #' ##estimated common effects for specific lambda
