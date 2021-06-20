@@ -47,7 +47,8 @@
 #'             M = 4,
 #'             nu = 1,
 #'             Lmin = 0,
-#'             log = TRUE)
+#'             log = TRUE,
+#'             nthreads = 4)
 #'
 #' @param x list containing the G group specific design matrices of sizes
 #' \eqn{n_i \times p_i}. Alternatively for a model with identical tensor design
@@ -265,7 +266,8 @@ softmaximin <- function(
                M = 4,
                nu = 1,
                Lmin = 0,
-               log = TRUE){
+               log = TRUE,
+               nthreads = 4){
 
 if(sum(alg == c("npg", "fista")) != 1){stop(paste("algorithm must be correctly specified"))}
 
@@ -398,19 +400,21 @@ res <- pga(x,
            alg,
            array,
            ll,
-           Lmin)
+           Lmin,
+           nthreads)
 
-if(res$Stops[2] == 1){
-
-warning(paste("program exit due to maximum number of inner iterations (",maxiter,") reached for model no ",res$endmodelno + 1,""))
-
-}
-
-if(res$Stop[3] == 1){
-
-warning(paste("program exit due to maximum number of backtraking steps reached for model no ",res$endmodelno + 1,""))
-
-}
+#todo: checks on all stops from each zeta
+# if(res$Stops[2] == 1){
+#
+# warning(paste("program exit due to maximum number of inner iterations (",maxiter,") reached for model no ",res$endmodelno + 1,""))
+#
+# }
+#
+# if(res$Stop[3] == 1){
+#
+# warning(paste("program exit due to maximum number of backtraking steps reached for model no ",res$endmodelno + 1,""))
+#
+# }
 
 # Iter <- res$Iter
 #

@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // pga
-Rcpp::List pga(Rcpp::List phi, Rcpp::List resp, std::string penalty, arma::vec zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, int mem, double tau, double nu, int alg, int array, int ll, double Lmin);
-RcppExport SEXP _SMME_pga(SEXP phiSEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP memSEXP, SEXP tauSEXP, SEXP nuSEXP, SEXP algSEXP, SEXP arraySEXP, SEXP llSEXP, SEXP LminSEXP) {
+Rcpp::List pga(Rcpp::List phi, Rcpp::List resp, std::string penalty, arma::vec zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, int mem, double tau, double nu, int alg, int array, int ll, double Lmin, int nthreads);
+RcppExport SEXP _SMME_pga(SEXP phiSEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP memSEXP, SEXP tauSEXP, SEXP nuSEXP, SEXP algSEXP, SEXP arraySEXP, SEXP llSEXP, SEXP LminSEXP, SEXP nthreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -33,13 +33,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type array(arraySEXP);
     Rcpp::traits::input_parameter< int >::type ll(llSEXP);
     Rcpp::traits::input_parameter< double >::type Lmin(LminSEXP);
-    rcpp_result_gen = Rcpp::wrap(pga(phi, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, mem, tau, nu, alg, array, ll, Lmin));
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(pga(phi, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, mem, tau, nu, alg, array, ll, Lmin, nthreads));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SMME_pga", (DL_FUNC) &_SMME_pga, 21},
+    {"_SMME_pga", (DL_FUNC) &_SMME_pga, 22},
     {NULL, NULL, 0}
 };
 

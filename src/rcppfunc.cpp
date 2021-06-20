@@ -1,16 +1,17 @@
-//// [[Rcpp::plugins(openmp)]]
-//#include <omp.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
-//// [[Rcpp::depends(RcppArmadillo)]]
-#include <RcppArmadillo.h>
+#include "RcppArmadillo.h" //for arma namespace?
+
 #include "auxfunc.h"
 
 using namespace std;
 using namespace arma;
 
-/////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////// algorithm ///////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////arma::mat Phi1, arma::mat Phi2, arma::mat Phi3,// Rcpp::NumericVector resp,
+////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// algorithm //////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 //[[Rcpp::export]]
 Rcpp::List pga(Rcpp::List phi,
                Rcpp::List resp,
@@ -32,50 +33,125 @@ Rcpp::List pga(Rcpp::List phi,
                int alg,
                int array,
                int ll,
-               double Lmin){
+               double Lmin,
+               int nthreads){
+
 
 Rcpp::List output, Resp(resp), Phi(phi);
 int G = Resp.size();
 
-if(array == 1){
+if(array == 1){//npg and fista for array data------
 
-arma::mat Phi1 = as<arma::mat>(Phi[0]);
-arma::mat Phi2 = as<arma::mat>(Phi[1]);
-arma::mat Phi3 = as<arma::mat>(Phi[2]);
+arma::mat Phi1 = Rcpp::as<arma::mat>(Phi[0]);
+arma::mat Phi2 = Rcpp::as<arma::mat>(Phi[1]);
+arma::mat Phi3 = Rcpp::as<arma::mat>(Phi[2]);
 arma::cube Z(Phi1.n_rows, Phi2.n_rows * Phi3.n_rows, G);
 
-for(int i = 0; i < G; i++){Z.slice(i) = as<arma::mat>(Resp[i]);}
+for(int i = 0; i < G; i++){Z.slice(i) = Rcpp::as<arma::mat>(Resp[i]);}
+
+int n1 = Phi1.n_rows, n2 = Phi2.n_rows, n3 = Phi3.n_rows, ng = n1 * n2 * n3,
+    p1 = Phi1.n_cols, p2 = Phi2.n_cols, p3 = Phi3.n_cols, p = p1 * p2 * p3,
+    nzeta = zeta.n_elem;
+
+double alphamax, delta, deltamax, L;
+
+arma::vec Btenter(nzeta),  Btiter(nzeta),  eig1, eig2, eig3,  EndMod(nzeta);
+
+arma::mat DF(nlambda, nzeta), ITER(nlambda, nzeta), Lamb(nlambda, nzeta),
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3 ;
+
+arma::cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta), PhitZ(p1, p2 * p3, G);
 
 
+////precompute
+Phi1tPhi1 = Phi1.t() * Phi1;
+Phi2tPhi2 = Phi2.t() * Phi2;
+Phi3tPhi3 = Phi3.t() * Phi3;
+eig1 = arma::eig_sym(Phi1tPhi1);
+eig2 = arma::eig_sym(Phi2tPhi2);
+eig3 = arma::eig_sym(Phi3tPhi3);
+alphamax = as_scalar(max(kron(eig1, kron(eig2 , eig3))));
+
+for(int j = 0; j < G; j++){
+
+  PhitZ.slice(j) = RHmat(Phi3.t(), RHmat(Phi2.t(),
+                         RHmat(Phi1.t(), Z.slice(j), n2, n3), n3, p1), p1, p2);
+
+}
+
+////proximal step size
+// Sumsqdiff.fill(0);
+// for(int i = 0; i < G; i++){
+// Zi = Z.slice(i);
+// for(int j = i + 1; j < G; j++){Sumsqdiff(i,j) = sum_square(Zi - Z.slice(j));}
+// }
+
+mat A(G, G);
+mat PhitZi;
+A.fill(0);
+for(int i = 0; i < G; i++){
+  PhitZi = PhitZ.slice(i);
+  for(int j = i + 1; j < G; j++){
+    A(i,j) = sum_square(PhitZi- PhitZ.slice(j));
+  }
+}
+
+L = 4 / pow(ng, 2) * (max(max(A)) + alphamax * ng / 2); //upper bound on Lipschitz constant
+//L =4 * alphamax / pow(ng, 2) * (max(max(Sumsqdiff)) + ng / 2); //upper bound on Lipschitz constant
+delta = nu * 1.9 / L; //stepsize scaled up bynu
+deltamax = 1.99 / L; //maximum theoretically allowed stepsize
+if(Lmin == 0){Lmin = (1 / nu) * L;}
+
+////make lambda sequence, Beta is ZERO here so lambdamax identical across zeta
+if(makelamb == 1){
+
+ // arma::mat Ze = zeros<mat>(n1, n2 * n3);
+  arma::mat absgradzeroall(p1, p2 * p2);
+
+  absgradzeroall = abs(gradloss(PhitZ, arma::zeros<mat>(p1, p2 * p3),
+                                -eev(arma::zeros<mat>(n1, n2 * n3), Z, ng), ng, 42, ll));
+
+  arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
+  arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
+  double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
+  double m = log(lambdaminratio);
+  double M = 0;
+  double difflamb = abs(M - m) / (nlambda - 1);
+  double l = 0;
+
+  for(int i = 0; i < nlambda ; i++){
+
+    lambda(i) = lambdamax * exp(l);
+    l = l - difflamb;
+
+  }
+
+}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
 
 
-int ascent, ascentmax,
-bt, btenter = 0, btiter = 0,
-endmodelno = nlambda, nzeta = zeta.n_elem,
-n1 = Phi1.n_rows, n2 = Phi2.n_rows, n3 = Phi3.n_rows, ng = n1 * n2 * n3,
-p1 = Phi1.n_cols, p2 = Phi2.n_cols, p3 = Phi3.n_cols, p = p1 * p2 * p3,
-Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
+#ifdef _OPENMP
+#pragma omp parallel num_threads(nthreads)
+#pragma omp for
+#endif
+//zeta loop-----
+for(int z = 0; z < nzeta ; z++){
 
-double alphamax, ascad = 3.7, delta, deltamax, L, lossBeta, lossProp, lossX, penProp,
-  relobj, val;
+int ascent, ascentmax, bt, btenter = 0, btiter = 0, endmodelno = nlambda,
+    Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
-arma::vec Btenter(nzeta),  Btiter(nzeta), df(nlambda),
-eig1, eig2, eig3, EndMod(nzeta),
-Iter(nlambda),Pen(maxiter),
-obj(maxiter + 1),
-Stops(3),
-eevBeta, eevProp, eevX;
+double ascad = 3.7, lossBeta, lossProp, lossX, penProp, relobj, val;
+
+arma::vec df(nlambda), Iter(nlambda), Pen(maxiter),
+          obj(maxiter + 1), Stops(3), eevBeta, eevProp, eevX;
 
 arma::mat absBeta(p1, p2 * p3), Beta(p1, p2 * p3), Betaprev(p1, p2 * p3),
           Betas(p, nlambda), BT(nlambda, maxiter), Delta(maxiter, nlambda),
-          DF(nlambda, nzeta), dpen(p1, p2 * p3), Gamma(p1, p2 * p3),
+            dpen(p1, p2 * p3), Gamma(p1, p2 * p3),
           GradlossX(p1, p2 * p3), GradlossXprev(p1, p2 * p3), GradlossX2(p1, p2 * p3),
-          ITER(nlambda, nzeta), Lamb(nlambda, nzeta), Obj(maxiter, nlambda),
-          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitPhiBeta, PhitPhiX, pospart(p1, p2 * p3),
+           Obj(maxiter, nlambda),
+           PhitPhiBeta, PhitPhiX, pospart(p1, p2 * p3),
           Prop(p1, p2 * p3), PhiBeta(n1, n2 * n3), PhiProp(n1, n2 * n3), PhiX(n1, n2 * n3),
-          wGamma(p1, p2 * p3), R, S, Sumsqdiff(G, G), X(p1, p2 * p3), Xprev, Zi;
-
-arma::cube Coef(p, nlambda, nzeta) , OBJ(maxiter, nlambda, nzeta), PhitZ(p1, p2 * p3, G);
+          wGamma(p1, p2 * p3), R, S,  X(p1, p2 * p3), Xprev, Zi;
 
 ////fill variables
 ascentmax = 4;
@@ -91,46 +167,6 @@ Delta.fill(NA_REAL);
 Obj.fill(NA_REAL);
 Pen.fill(0);
 
-////precompute
-Phi1tPhi1 = Phi1.t() * Phi1;
-Phi2tPhi2 = Phi2.t() * Phi2;
-Phi3tPhi3 = Phi3.t() * Phi3;
-eig1 = arma::eig_sym(Phi1tPhi1);
-eig2 = arma::eig_sym(Phi2tPhi2);
-eig3 = arma::eig_sym(Phi3tPhi3);
-alphamax = as_scalar(max(kron(eig1, kron(eig2 , eig3))));
-
-////precompute
-for(int j = 0; j < G; j++){
-
-PhitZ.slice(j) = RHmat(Phi3.t(), RHmat(Phi2.t(),
-                       RHmat(Phi1.t(), Z.slice(j), n2, n3), n3, p1), p1, p2);
-
-}
-
-////proximal step size
-// Sumsqdiff.fill(0);
-// for(int i = 0; i < G; i++){
-// Zi = Z.slice(i);
-// for(int j = i + 1; j < G; j++){Sumsqdiff(i,j) = sum_square(Zi - Z.slice(j));}
-// }
-
-mat A(G, G);
-mat PhitZi;
-A.fill(0);
-for(int i = 0; i < G; i++){
-PhitZi = PhitZ.slice(i);
-for(int j = i + 1; j < G; j++){
-A(i,j) = sum_square(PhitZi- PhitZ.slice(j));
-}
-}
-
-L = 4 / pow(ng, 2) * (max(max(A)) + alphamax * ng / 2); //upper bound on Lipschitz constant
-//L =4 * alphamax / pow(ng, 2) * (max(max(Sumsqdiff)) + ng / 2); //upper bound on Lipschitz constant
-delta = nu * 1.9 / L; //stepsize scaled up bynu
-deltamax = 1.99 / L; //maximum theoretically allowed stepsize
-if(Lmin == 0){Lmin = (1 / nu) * L;}
-
 ////initialize
 Betaprev.fill(0);
 Beta = Betaprev;
@@ -144,35 +180,35 @@ eevBeta = -eev(PhiBeta, Z, ng);
 eevX = eevBeta;
 
 //zeta loop
-for(int z = 0; z < nzeta ; z++){
+// for(int z = 0; z < nzeta ; z++){
 
 lossBeta = softmaxloss(eevBeta, zeta(z), ll);
 lossX = lossBeta; //npg only uses X
 
-////make lambda sequence
-if(makelamb == 1){
-
-//arma::mat Ze = zeros<mat>(n1, n2 * n3);
-arma::mat absgradzeroall(p1, p2 * p2);
-
-absgradzeroall = abs(gradloss(PhitZ, PhitPhiBeta, -eev(PhiBeta, Z, ng), ng, zeta(z), ll));
-
-arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
-arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
-double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
-double m = log(lambdaminratio);
-double M = 0;
-double difflamb = abs(M - m) / (nlambda - 1);
-double l = 0;
-
-for(int i = 0; i < nlambda ; i++){
-
-lambda(i) = lambdamax * exp(l);
-l = l - difflamb;
-
-}
-
-}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+// ////make lambda sequence, NOTE Beta is set to ZERO here!!
+// if(makelamb == 1){
+//
+// //arma::mat Ze = zeros<mat>(n1, n2 * n3);
+// arma::mat absgradzeroall(p1, p2 * p2);
+//
+// absgradzeroall = abs(gradloss(PhitZ, PhitPhiBeta, -eev(PhiBeta, Z, ng), ng, zeta(z), ll));
+//
+// arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
+// arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
+// double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
+// double m = log(lambdaminratio);
+// double M = 0;
+// double difflamb = abs(M - m) / (nlambda - 1);
+// double l = 0;
+//
+// for(int i = 0; i < nlambda ; i++){
+//
+// lambda(i) = lambdamax * exp(l);
+// l = l - difflamb;
+//
+// }
+//
+// }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
 
 ///////////start lambda loop
 for (int j = 0; j < nlambda; j++){
@@ -444,6 +480,7 @@ Stops(2) = Stopbt;
 btenter = accu((BT > -1));
 btiter = accu((BT > 0) % BT);
 
+//save to shared
 Coef.slice(z) = Betas;
 DF.col(z) = df;
 Btenter(z) = btenter;
@@ -462,16 +499,14 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
                             Rcpp::Named("Obj") = OBJ,
                             Rcpp::Named("Iter") = ITER,
                             Rcpp::Named("endmodelno") = EndMod,
-                            Rcpp::Named("lambda") = Lamb,
+                            Rcpp::Named("lambda") = Lamb
                           //  Rcpp::Named("BT") = BT,
-                          //  Rcpp::Named("L") = L,
-                          //  Rcpp::Named("Delta") = Delta,
-                          //  Rcpp::Named("Sumsqdiff") = Sumsqdiff,
-                            Rcpp::Named("Stops") = Stops);
+                          //    Rcpp::Named("Stops") = Stops
+                              );
 
 }else{//non array
 
-int p = as<arma::mat>(Phi[0]).n_cols;
+int p = Rcpp::as<arma::mat>(Phi[0]).n_cols;
 field<mat> RESP(G, 1), PHI(G, 1);
 arma::cube PHItPHI(p, p, G);
 arma::mat PHItRESP(p, G);
@@ -479,8 +514,8 @@ arma::vec n(G);
 
 for(int i = 0; i < G; i++){
 
-RESP(i, 0) = as<arma::mat>(Resp[i]); //ngx1 matrices
-PHI(i, 0) = as<arma::mat>(Phi[i]); //ngxp matrices
+RESP(i, 0) = Rcpp::as<arma::mat>(Resp[i]); //ngx1 matrices
+PHI(i, 0) = Rcpp::as<arma::mat>(Phi[i]); //ngxp matrices
 PHItPHI.slice(i) = PHI(i, 0).t() * PHI(i, 0);  // pxp * G store in cube!!
 PHItRESP.col(i) = PHI(i, 0).t() * RESP(i, 0); //eta...//px1 * G stor in matrix
 n(i) = PHI(i, 0).n_rows;
@@ -492,16 +527,48 @@ arma::vec Btiter(nzeta),  EndMod(nzeta);
 arma::mat DF(nlambda, nzeta), ITER(nlambda, nzeta), Lamb(nlambda, nzeta);
 cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta);
 
-//start parallel zeta loop------------------------------------------------------
+
+//make lambda sequence
+if(makelamb == 1){
+//  ZE.fill(0);
+//  PHItPHIX = cube_mult(PHItPHI, ZE); // p x G matrix
+//  eevX = -eev_f(PHIX, RESP, n);
+
+  arma::mat absgradzeroall(p, 1);
+
+  absgradzeroall = abs(gradloss_f(PHItRESP, cube_mult(PHItPHI, arma::zeros<mat>(p, 1)),
+                                  -eev_f(field_mult(PHI, arma::zeros<mat>(p, 1)), RESP, n), n, 42, ll));
+
+  arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
+  arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
+  double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
+  double m = log(lambdaminratio);
+  double M = 0;
+  double difflamb = abs(M - m) / (nlambda - 1);
+  double l = 0;
+
+  for(int i = 0; i < nlambda ; i++){
+
+    lambda(i) = lambdamax * exp(l);
+    l = l - difflamb;
+
+  }
+
+}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+
+
+#ifdef _OPENMP
+#pragma omp parallel num_threads(nthreads)
+#pragma omp for
+#endif
+//zeta loop-----
 for(int z = 0; z < nzeta ; z++){
 
-int btiter = 0, endmodelno = nlambda,  Stopconv = 0,
-  Stopmaxiter = 0, Stopbt = 0;
+int btiter = 0, endmodelno = nlambda, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
 double ascad = 3.7, delta, lossProp, lossX, penProp, relobj, val;
 
-arma::vec  df(nlambda), eevBeta, eevProp, eevX,
-          Iter(nlambda), obj(maxiter + 1),
+arma::vec df(nlambda), eevBeta, eevProp, eevX, Iter(nlambda), obj(maxiter + 1),
           Pen(maxiter), Stops(3);
 
 arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter),
@@ -509,7 +576,6 @@ arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter),
           GradlossXprev(p, 1), GradlossX2(p, 1),
           Obj(maxiter, nlambda), PHItPHIX, pospart(p, 1), Prop(p, 1),
           wGamma(p, 1), R,S,X(p, 1), Xprev(p, 1);
-
 
 field<mat> PHIX, PHIProp;
 
@@ -536,31 +602,31 @@ eevX = -eev_f(PHIX, RESP, n);
 
 lossX = softmaxloss(eevX, zeta(z), ll);
 
-
-//make lambda sequence
-if(makelamb == 1){
-
-//arma::vec Ze = zeros<vec>(n);
-arma::mat absgradzeroall(p, 1);
-
-absgradzeroall = abs(gradloss_f(PHItRESP, PHItPHIX, eevX, n, zeta(z), ll)); //todo gradloss
-
-arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
-arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
-double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
-double m = log(lambdaminratio);
-double M = 0;
-double difflamb = abs(M - m) / (nlambda - 1);
-double l = 0;
-
-for(int i = 0; i < nlambda ; i++){
-
-lambda(i) = lambdamax * exp(l);
-l = l - difflamb;
-
-}
-
-}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+//
+// //make lambda sequence
+// if(makelamb == 1){
+//
+// //arma::vec Ze = zeros<vec>(n);
+// arma::mat absgradzeroall(p, 1);
+//
+// absgradzeroall = abs(gradloss_f(PHItRESP, PHItPHIX, eevX, n, zeta(z), ll)); //todo gradloss
+//
+// arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
+// arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
+// double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
+// double m = log(lambdaminratio);
+// double M = 0;
+// double difflamb = abs(M - m) / (nlambda - 1);
+// double l = 0;
+//
+// for(int i = 0; i < nlambda ; i++){
+//
+// lambda(i) = lambdamax * exp(l);
+// l = l - difflamb;
+//
+// }
+//
+// }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
 
 /////////start lambda loop
 for (int j = 0; j < nlambda; j++){
@@ -715,10 +781,10 @@ ITER.col(z) = Iter;
 EndMod(z) = endmodelno;
 Lamb.col(z) = lambda;
 
-//reset
-Stopconv = 0;
-Stopmaxiter = 0;
-Stopbt = 0;
+// //no reset when defined in private scope
+// Stopconv = 0;
+// Stopmaxiter = 0;
+// Stopbt = 0;
 
 }//end zeta loop
 
