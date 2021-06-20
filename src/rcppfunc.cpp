@@ -556,13 +556,16 @@ if(makelamb == 1){
 
 }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
 
-
 #ifdef _OPENMP
 #pragma omp parallel num_threads(nthreads)
+{
+#endif
+
+#ifdef _OPENMP
 #pragma omp for
 #endif
-//zeta loop-----
-for(int z = 0; z < nzeta ; z++){
+for(int z = 0; z < nzeta ; z++){//zeta loop-----
+
 
 int btiter = 0, endmodelno = nlambda, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
@@ -787,6 +790,10 @@ Lamb.col(z) = lambda;
 // Stopbt = 0;
 
 }//end zeta loop
+
+#ifdef _OPENMP
+}
+#endif
 
 output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
                             Rcpp::Named("df") = DF,
