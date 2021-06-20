@@ -183,6 +183,7 @@
 #' #Non-array data
 #'
 #' ##size of example
+#' set.seed(42)
 #' G <- 10; n <- sample(500:1500, G); p <- 60
 #' x <- y <- list()
 #'
