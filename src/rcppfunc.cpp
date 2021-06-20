@@ -131,9 +131,12 @@ if(makelamb == 1){
 
 #ifdef _OPENMP
 #pragma omp parallel num_threads(nthreads)
-#pragma omp for
+{
 #endif
 //zeta loop-----
+#ifdef _OPENMP
+#pragma omp for
+#endif
 for(int z = 0; z < nzeta ; z++){
 
 int ascent, ascentmax, bt, btenter = 0, btiter = 0, endmodelno = nlambda,
@@ -491,7 +494,9 @@ EndMod(z) = endmodelno;
 Lamb.col(z) = lambda;
 
 }//end zeta loop
-
+#ifdef _OPENMP
+}
+#endif
 output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
                             Rcpp::Named("df") = DF,
                             Rcpp::Named("btenter") = Btenter,
