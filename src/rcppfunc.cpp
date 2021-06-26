@@ -39,7 +39,7 @@ Rcpp::List pga(Rcpp::List phi,
 
 Rcpp::List output, Resp(resp), Phi(phi);
 int G = Resp.size();
-
+int openmp = 0;
 if(array == 1){//npg and fista for array data------
 
 arma::mat Phi1 = Rcpp::as<arma::mat>(Phi[0]);
@@ -58,7 +58,7 @@ double alphamax, delta, deltamax, L;
 arma::vec Btenter(nzeta),  Btiter(nzeta),  eig1, eig2, eig3,  EndMod(nzeta);
 
 arma::mat DF(nlambda, nzeta), ITER(nlambda, nzeta), Lamb(nlambda, nzeta),
-          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3 ;
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, Stops(3, nzeta);
 
 arma::cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta), PhitZ(p1, p2 * p3, G);
 
@@ -130,6 +130,7 @@ if(makelamb == 1){
 
 
 #ifdef _OPENMP
+openmp = 1;
 #pragma omp parallel num_threads(nthreads)
 {
 #endif
@@ -145,7 +146,7 @@ int ascent, ascentmax, bt, btenter = 0, btiter = 0, endmodelno = nlambda,
 double ascad = 3.7, lossBeta, lossProp, lossX, penProp, relobj, val;
 
 arma::vec df(nlambda), Iter(nlambda), Pen(maxiter),
-          obj(maxiter + 1), Stops(3), eevBeta, eevProp, eevX;
+          obj(maxiter + 1),  eevBeta, eevProp, eevX;
 
 arma::mat absBeta(p1, p2 * p3), Beta(p1, p2 * p3), Betaprev(p1, p2 * p3),
           Betas(p, nlambda), BT(nlambda, maxiter), Delta(maxiter, nlambda),
@@ -477,9 +478,9 @@ break;
 
 
 
-Stops(0) = Stopconv;
-Stops(1) = Stopmaxiter;
-Stops(2) = Stopbt;
+Stops(0, z) = Stopconv;
+Stops(1, z) = Stopmaxiter;
+Stops(2, z) = Stopbt;
 btenter = accu((BT > -1));
 btiter = accu((BT > 0) % BT);
 
@@ -504,9 +505,10 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
                             Rcpp::Named("Obj") = OBJ,
                             Rcpp::Named("Iter") = ITER,
                             Rcpp::Named("endmodelno") = EndMod,
-                            Rcpp::Named("lambda") = Lamb
+                            Rcpp::Named("lambda") = Lamb,
                           //  Rcpp::Named("BT") = BT,
-                          //    Rcpp::Named("Stops") = Stops
+                            Rcpp::Named("Stops") = Stops,
+                            Rcpp::Named("openMP") = openmp
                               );
 
 }else{//non array
@@ -529,15 +531,11 @@ n(i) = PHI(i, 0).n_rows;
 
 int nzeta = zeta.n_elem;
 arma::vec Btiter(nzeta),  EndMod(nzeta);
-arma::mat DF(nlambda, nzeta), ITER(nlambda, nzeta), Lamb(nlambda, nzeta);
+arma::mat DF(nlambda, nzeta), ITER(nlambda, nzeta), Lamb(nlambda, nzeta), Stops(3, nzeta);
 cube Coef(p, nlambda, nzeta), OBJ(maxiter, nlambda, nzeta);
-
 
 //make lambda sequence
 if(makelamb == 1){
-//  ZE.fill(0);
-//  PHItPHIX = cube_mult(PHItPHI, ZE); // p x G matrix
-//  eevX = -eev_f(PHIX, RESP, n);
 
   arma::mat absgradzeroall(p, 1);
 
@@ -562,6 +560,7 @@ if(makelamb == 1){
 }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
 
 #ifdef _OPENMP
+openmp = 1;
 #pragma omp parallel num_threads(nthreads)
 {
 #endif
@@ -571,18 +570,17 @@ if(makelamb == 1){
 #endif
 for(int z = 0; z < nzeta ; z++){//zeta loop-----
 
-
 int btiter = 0, endmodelno = nlambda, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
 double ascad = 3.7, delta, lossProp, lossX, penProp, relobj, val;
 
 arma::vec df(nlambda), eevBeta, eevProp, eevX, Iter(nlambda), obj(maxiter + 1),
-          Pen(maxiter), Stops(3);
+          Pen(maxiter);
 
 arma::mat absX(p, 1), Betas(p, nlambda), BT(nlambda, maxiter),
           Delta(maxiter, nlambda), dpen(p, 1), Gamma(p, 1), GradlossX(p, 1),
-          GradlossXprev(p, 1), GradlossX2(p, 1),
-          Obj(maxiter, nlambda), PHItPHIX, pospart(p, 1), Prop(p, 1),
+          GradlossXprev(p, 1), GradlossX2(p, 1), Obj(maxiter, nlambda), PHItPHIX,
+          pospart(p, 1), Prop(p, 1),
           wGamma(p, 1), R,S,X(p, 1), Xprev(p, 1);
 
 field<mat> PHIX, PHIProp;
@@ -775,9 +773,9 @@ break;
 
 }//end lambda loop
 
-Stops(0) = Stopconv;
-Stops(1) = Stopmaxiter;
-Stops(2) = Stopbt;
+Stops(0, z) = Stopconv;
+Stops(1, z) = Stopmaxiter;
+Stops(2, z) = Stopbt;
 btiter = accu((BT > 0) % BT);
 
 Coef.slice(z) = Betas;
@@ -788,11 +786,6 @@ OBJ.slice(z) = Obj;
 ITER.col(z) = Iter;
 EndMod(z) = endmodelno;
 Lamb.col(z) = lambda;
-
-// //no reset when defined in private scope
-// Stopconv = 0;
-// Stopmaxiter = 0;
-// Stopbt = 0;
 
 }//end zeta loop
 
@@ -807,13 +800,11 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Coef,
                             Rcpp::Named("Obj") = OBJ,
                             Rcpp::Named("Iter") = ITER,
                             Rcpp::Named("endmodelno") = EndMod,
-                            Rcpp::Named("lambda") = Lamb
+                            Rcpp::Named("lambda") = Lamb,
                             //  Rcpp::Named("BT") = BT,
-                            //  Rcpp::Named("L") = L,
-                            //  Rcpp::Named("Delta") = Delta,
-                            //  Rcpp::Named("Sumsqdiff") = Sumsqdiff,
-                          //  Rcpp::Named("Stops") = Stops
-                              );
+                            Rcpp::Named("Stops") = Stops,
+                              Rcpp::Named("openMP") = openmp
+);
 }
 
 return output;
