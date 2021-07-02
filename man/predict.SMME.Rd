@@ -9,7 +9,8 @@
 \method{predict}{SMME}(object, x = NULL, X = NULL, ...)
 }
 \arguments{
-\item{object}{An object of class SMME, produced with \code{softmaximin}}
+\item{object}{An object of class SMME, produced with \code{softmaximin} with
+\eqn{m_\zeta} fitted models for each value of \code{zeta}.}
 
 \item{x}{a matrix of size \eqn{n' \times p} with \eqn{n'} is the number of new data points.}
 
@@ -19,17 +20,22 @@ where \eqn{n'_{i}} is the number of new data points in  the \eqn{i}th dimension.
 \item{...}{ignored}
 }
 \value{
-A list of length \code{nlambda} containing the linear predictors for each  model. If
-new covariate data is supplied in one \eqn{n' \times p} matrix \code{x} each
-item  is a vector of length \eqn{n'}. If the data is supplied as a list of
-matrices each of size \eqn{n'_{i} \times p_i},  each item is an array of size \eqn{n'_1 \times \cdots \times n'_d}, with \eqn{d\in \{1,2,3\}}.
+A list of length \code{length(zeta)}.
+If new covariate data is supplied as an \eqn{n' \times p} matrix \code{x}
+each item in the list is an \eqn{n'\times m_\zeta} matrix with the linear
+predictors computed for each model. If new covariate data is supplied as a
+list of matrices each of size \eqn{n'_{i} \times p_i},  each item is an array
+of size \eqn{n'_1 \times \cdots \times n'_d \times m_\zeta},
+\eqn{d\in \{1,2,3\}}, with the linear predictors computed for each model.
 }
 \description{
 Given new covariate data this function computes the linear predictors
-based on the estimated model coefficients in an object produced by the function \code{softmaximin}. Note that the
-data can be supplied in two different formats: i) as a \eqn{n' \times p} matrix (\eqn{p} is the number of model
-coefficients and \eqn{n'} is the number of new data points) or ii) as a list of two or three matrices each of
-size \eqn{n_i' \times p_i, i = 1, 2, 3} (\eqn{n_i'} is the number of new marginal data points in the \eqn{i}th dimension).
+based on the estimated model coefficients in an object produced by the function
+\code{softmaximin}. Note that the data can be supplied in two different
+formats: i) as a \eqn{n' \times p} matrix (\eqn{p} is the number of model
+coefficients and \eqn{n'} is the number of new data points) or ii) as a list
+of two or three Kronecker component matrices each of size \eqn{n_i' \times p_i, i = 1, 2, 3}
+(\eqn{n_i'} is the number of new marginal data points in the \eqn{i}th dimension).
 }
 \examples{
 
@@ -43,8 +49,8 @@ X3 <- matrix(rnorm(n3 * p3, 0, 0.5), n3, p3)
 X <- list(X1, X2, X3)
 
 component <- rbinom(p1 * p2 * p3, 1, 0.1)
-Beta1 <- array(rnorm(p1 * p2 * p3, 0, .1) + component, c(p1 , p2, p3))
-Beta2 <- array(rnorm(p1 * p2 * p3, 0, .1) + component, c(p1 , p2, p3))
+Beta1 <- array(rnorm(p1 * p2 * p3, 0, 0.1) + component, c(p1 , p2, p3))
+Beta2 <- array(rnorm(p1 * p2 * p3, 0, 0.1) + component, c(p1 , p2, p3))
 mu1 <- RH(X3, RH(X2, RH(X1, Beta1)))
 mu2 <- RH(X3, RH(X2, RH(X1, Beta2)))
 Y1 <- array(rnorm(n1 * n2 * n3, mu1), dim = c(n1, n2, n3))
@@ -53,18 +59,17 @@ Y2 <- array(rnorm(n1 * n2 * n3, mu2), dim = c(n1, n2, n3))
 Y <- array(NA, c(dim(Y1), 2))
 Y[,,, 1] <- Y1; Y[,,, 2] <- Y2;
 
-fit <- softmaximin(X, Y, zeta = 10, penalty = "lasso", alg = "npg")
+fit <- softmaximin(X, Y, zeta = c(1, 10), penalty = "lasso", alg = "npg")
 
 ##new data in matrix form
-x <- matrix(rnorm(p1 * p2 * p3), nrow = 1)
-predict(fit, x = x)[[15]]
+x <- matrix(rnorm(2 * p1 * p2 * p3), nrow = 2)
+yhat <- predict(fit, x = x)
 
 ##new data in tensor component form
-X1 <- matrix(rnorm(p1), nrow = 1)
-X2 <- matrix(rnorm(p2), nrow = 1)
-X3 <- matrix(rnorm(p3), nrow = 1)
-predict(fit, X = list(X1, X2, X3))[[15]]
-
+X1 <- matrix(rnorm(2 * p1), nrow = 2)
+X2 <- matrix(rnorm(3 * p2), nrow = 3)
+X3 <- matrix(rnorm(4 * p3), nrow = 4)
+Yhat <- predict(fit, X = list(X1, X2, X3))
 
 }
 \author{

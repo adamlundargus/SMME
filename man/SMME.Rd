@@ -4,7 +4,7 @@
 \alias{SMME}
 \alias{softmaximin}
 \alias{pga}
-\title{Soft Maximin Estimation for Large Scale Data}
+\title{Soft Maximin Estimation for Large Scale Heterogenous Data}
 \usage{
 softmaximin(x,
             y,

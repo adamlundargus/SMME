@@ -447,11 +447,7 @@ warning(paste("maximum number of backtraking steps reached for model no.",
 
 }
 
-if(res$openMP == 1){
-message(paste("The SMME procedure was distributed across", nthread, "cores"))
-}else{
-message(paste("The SMME procedure was not distributed."))
-}
+if(res$openMP == 1){message(paste("Multithreading enabled using", nthread, "threads"))}
 # Iter <- res$Iter
 #
 # maxiterpossible <- sum(Iter > 0)
@@ -476,6 +472,8 @@ out$spec <- paste(penalty," penalized linear model with", G , "groups")
 }
 
 ##todo: should be looped over and sent to list
+out$zeta <- zeta
+
 if(length(zeta) > 1){
   Obj <- iter <- coef <- lambda <- df <- list()
 for(z in 1:length(zeta)){

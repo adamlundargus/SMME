@@ -57,6 +57,16 @@
 #' @export
 
 print.SMME <- function(x, ...) {
-out <- data.frame(Df = x$df, lambda = x$lambda)
+
+if(length(x$df) > 1){
+out <- vector(mode = "list", length = length(x$df))
+names(out) <- x$zeta
+for(i in 1:length(x$df)){
+out[[i]] <- data.frame(Df = x$df[[i]], lambda = x$lambda[[i]])
+}
+}else{
+out <- list(data.frame(Df = x$df, lambda = x$lambda))
+}
+
 print(out)
 }
