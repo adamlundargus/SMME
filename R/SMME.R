@@ -447,7 +447,7 @@ warning(paste("maximum number of backtraking steps reached for model no.",
 
 }
 
-if(res$openMP == 1){message(paste("Multithreading enabled using", nthread, "threads"))}
+if(res$openMP == 1){message(paste("Multithreading enabled using", nthreads, "threads"))}
 # Iter <- res$Iter
 #
 # maxiterpossible <- sum(Iter > 0)
