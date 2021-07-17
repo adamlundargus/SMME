@@ -212,11 +212,11 @@ y[[g]] <- rnorm(n[g]) + mu
 }
 
 ##fit model for range of lambda and zeta
-system.time(fit <- softmaximin(x, y, zeta = c(0.1, 1, 10, 100), penalty = "lasso", alg = "npg"))
+system.time(fit <- softmaximin(x, y, zeta = c(0.1, 1), penalty = "lasso", alg = "npg"))
 betahat <- fit$coef
 
 ##estimated common effects for specific lambda and zeta
-modelno <- 6; zetano <- 3
+modelno <- 6; zetano <- 2
 m <- min(betahat[[zetano]][ , modelno], common_effects)
 M <- max(betahat[[zetano]][ , modelno], common_effects)
 plot(common_effects, type = "p", ylim = c(m, M), col = "red")
@@ -226,7 +226,7 @@ lines(betahat[[zetano]][ , modelno], type = "h")
 
 ##size of example
 set.seed(42)
-G <- 5; n <- c(65, 26, 13); p <- c(13, 5, 4)
+G <- 5; n <- c(20, 15, 10); p <- c(10, 5, 4)
 
 ##marginal design matrices (Kronecker components)
 x <- list()

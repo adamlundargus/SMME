@@ -2,7 +2,8 @@
 
 CXX_STD = CXX11
 
-PKG_CPPFLAGS = -fopenmp -O3 -Wall -ftree-vectorize -march=native -mavx -mfma
+PKG_CPPFLAGS = -fopenmp -O3 -Wall -ftree-vectorize
+#PKG_CPPFLAGS = -fopenmp -O3 -Wall -ftree-vectorize -march=native -mavx -mfma
 
 PKG_CXXFLAGS += $(SHLIB_OPENMP_CXXFLAGS)
 
