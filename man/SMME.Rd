@@ -194,7 +194,7 @@ distribute the computations across CPUs if openMP is available.
 
 ##size of example
 set.seed(42)
-G <- 10; n <- sample(500:1500, G); p <- 60
+G <- 10; n <- sample(100:500, G); p <- 60
 x <- y <- list()
 
 ##group design matrices

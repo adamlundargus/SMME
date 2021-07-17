@@ -143,7 +143,7 @@ for(int z = 0; z < nzeta ; z++){
 int ascent, ascentmax, bt, btenter = 0, btiter = 0, endmodelno = nlambda,
     Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
-double ascad = 3.7, lossBeta, lossProp, lossX, penProp, relobj, val;
+double ascad = 3.7, lossBeta, lossProp = 0, lossX, penProp = 0, relobj, val;
 
 arma::vec df(nlambda), Iter(nlambda), Pen(maxiter),
           obj(maxiter + 1),  eevBeta, eevProp, eevX;
@@ -572,7 +572,7 @@ for(int z = 0; z < nzeta ; z++){//zeta loop-----
 
 int btiter = 0, endmodelno = nlambda, Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
-double ascad = 3.7, delta, lossProp, lossX, penProp, relobj, val;
+double ascad = 3.7, delta, lossProp = 0, lossX, penProp = 0, relobj, val;
 
 arma::vec df(nlambda), eevBeta, eevProp, eevX, Iter(nlambda), obj(maxiter + 1),
           Pen(maxiter);
