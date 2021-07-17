@@ -203,7 +203,7 @@
 #'
 #' ##size of example
 #' set.seed(42)
-#' G <- 10; n <- sample(500:1500, G); p <- 60
+#' G <- 10; n <- sample(100:500, G); p <- 60
 #' x <- y <- list()
 #'
 #' ##group design matrices
@@ -221,11 +221,11 @@
 #' }
 #'
 #' ##fit model for range of lambda and zeta
-#' system.time(fit <- softmaximin(x, y, zeta = c(0.1, 1, 10, 100), penalty = "lasso", alg = "npg"))
+#' system.time(fit <- softmaximin(x, y, zeta = c(0.1, 1), penalty = "lasso", alg = "npg"))
 #' betahat <- fit$coef
 #'
 #' ##estimated common effects for specific lambda and zeta
-#' modelno <- 6; zetano <- 3
+#' modelno <- 6; zetano <- 2
 #' m <- min(betahat[[zetano]][ , modelno], common_effects)
 #' M <- max(betahat[[zetano]][ , modelno], common_effects)
 #' plot(common_effects, type = "p", ylim = c(m, M), col = "red")
